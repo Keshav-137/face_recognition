@@ -11,7 +11,7 @@ def draw_boundary(img, classifier, scaleFactor, minNeighbors, color, clf, id_to_
         confidence = int(100 * (1 - pred / 300))
 
         if confidence > 70:
-            name = id_to_name.get(id, "Unknown")  # Get name from mapping
+            name = id_to_name.get(str(id), "Unknown")  # JSON object keys are strings
             cv2.putText(img, name, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 1, cv2.LINE_AA)
         else:
             cv2.putText(img, "UNKNOWN", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, [0, 0, 255], 1, cv2.LINE_AA)

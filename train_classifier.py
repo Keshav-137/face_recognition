@@ -1,10 +1,30 @@
 import numpy as np
-from PIL import Image
 import os
 import cv2
 import json
+from config import DATA_DIR
 
-def train_classifier(data_dir):
+
+def parse_image_identity(filename):
+    parts = os.path.splitext(os.path.basename(filename))[0].split(".")
+    if len(parts) < 3 or not parts[-1].isdigit():
+        raise ValueError("expected a name, ID, and numeric sample number")
+
+    if parts[0].isdigit():
+        user_id = int(parts[0])
+        name = ".".join(parts[1:-1])
+    elif parts[-2].isdigit():
+        name = ".".join(parts[:-2])
+        user_id = int(parts[-2])
+    else:
+        raise ValueError("could not find a numeric ID in the filename")
+
+    if not name:
+        raise ValueError("name is missing from the filename")
+    return user_id, name
+
+
+def train_classifier(data_dir=DATA_DIR):
     if not os.path.exists(data_dir):
         print(f"Error: The directory '{data_dir}' does not exist. Training failed.")
         return False  # Indicate failure
@@ -18,25 +38,27 @@ def train_classifier(data_dir):
     faces = []
     ids = []
     id_to_name = {}  # Dictionary to map id to name
+    id_name_conflicts = {}
     
     successful_images = 0
 
     for image in path:
         try:
-            img = Image.open(image).convert('L')
-            imageNp = np.array(img, 'uint8')
-            filename = os.path.split(image)[1]
-            id = int(filename.split(".")[0])  # Extract ID from filename (first part)
-            name = filename.split(".")[1]  # Extract name from filename (second part)
+            imageNp = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+            if imageNp is None:
+                print(f"Error: Could not open or read image {image}.")
+                continue
+            user_id, name = parse_image_identity(image)
             
             faces.append(imageNp)
-            ids.append(id)
-            id_to_name[id] = name  # Store the name with the ID
+            ids.append(user_id)
+            id_key = str(user_id)
+            existing_name = id_to_name.setdefault(id_key, name)
+            if existing_name != name:
+                id_name_conflicts.setdefault(id_key, {existing_name}).add(name)
             successful_images += 1
         except FileNotFoundError as e:
             print(f"Error: File not found {image}: {e}")
-        except Image.UnidentifiedImageError as e:
-            print(f"Error: Could not open or read image {image}: {e}")
         except ValueError as e:
             print(f"Error: Invalid ID in filename {image}: {e}")
         except Exception as e:
@@ -44,8 +66,17 @@ def train_classifier(data_dir):
 
     ids = np.array(ids)
 
-    if not hasattr(cv2.face, "LBPHFaceRecognizer_create"):
-        print("Error: LBPHFaceRecognizer_create is not available in your OpenCV version. Training failed.")
+    if id_name_conflicts:
+        conflicts = "; ".join(
+            f"ID {user_id}: {', '.join(sorted(names))}"
+            for user_id, names in sorted(id_name_conflicts.items())
+        )
+        print(f"Error: Each ID must belong to one person. Conflicting dataset names: {conflicts}. Training failed.")
+        return False
+
+    face_module = getattr(cv2, "face", None)
+    if face_module is None or not hasattr(face_module, "LBPHFaceRecognizer_create"):
+        print("Error: LBPHFaceRecognizer_create is unavailable. Install opencv-contrib-python. Training failed.")
         return False  # Indicate failure
 
     if successful_images < 2:
@@ -53,7 +84,7 @@ def train_classifier(data_dir):
         return False # Indicate failure
         
     try:
-        clf = cv2.face.LBPHFaceRecognizer_create()
+        clf = face_module.LBPHFaceRecognizer_create()
         clf.train(faces, ids)
         clf.write("classifier.xml")
 
@@ -67,3 +98,7 @@ def train_classifier(data_dir):
     except Exception as e:
         print(f"Error during training: {e}. Training failed.")
         return False # Indicate failure
+
+
+if __name__ == "__main__":
+    train_classifier()
