@@ -5,16 +5,16 @@ from config import DATA_DIR
 from config import FACE_IMAGE_SIZE, SAMPLES_PER_POSE, CAPTURE_INTERVAL_SECONDS
 
 
-def face_cropped(img, face_classifier, mirrored=False):
-    detection_img = cv2.flip(img, 1) if mirrored else img
-    gray = cv2.cvtColor(detection_img, cv2.COLOR_BGR2GRAY)
-    faces = face_classifier.detectMultiScale(gray, 1.3, 5)
-    if len(faces) == 0:
+def face_cropped(img, face_classifier):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = list(face_classifier.detectMultiScale(gray, 1.3, 5))
+    flipped_gray = cv2.flip(gray, 1)
+    for x, y, w, h in face_classifier.detectMultiScale(flipped_gray, 1.3, 5):
+        faces.append((img.shape[1] - x - w, y, w, h))
+    if not faces:
         return None
 
     x, y, w, h = max(faces, key=lambda face: face[2] * face[3])
-    if mirrored:
-        x = img.shape[1] - x - w
     return img[y:y + h, x:x + w], (x, y, w, h)
 
 
@@ -47,16 +47,15 @@ def generate_dataset():
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         raise RuntimeError("Could not open the webcam.")
-
     poses = (
-        ("front", frontal_classifier, False, "Look straight at the camera."),
-        ("left profile", profile_classifier, False, "Turn your face to your left."),
-        ("right profile", profile_classifier, True, "Turn your face to your right."),
+        ("front", frontal_classifier, "Look straight at the camera."),
+        ("left profile", profile_classifier, "Turn your face to your left."),
+        ("right profile", profile_classifier, "Turn your face to your right."),
     )
     collected_count = 0
     stopped_early = False
     try:
-        for pose_name, classifier, mirrored, instruction in poses:
+        for pose_name, classifier, instruction in poses:
             print(f"Collecting {pose_name} images. {instruction}")
             captured_for_pose = 0
             next_capture_at = time.monotonic()
@@ -66,7 +65,7 @@ def generate_dataset():
                 if not ret:
                     raise RuntimeError("Failed to capture a frame from the webcam.")
 
-                detection = face_cropped(frame, classifier, mirrored)
+                detection = face_cropped(frame, classifier)
                 if detection is not None:
                     cropped_face, (x, y, w, h) = detection
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)

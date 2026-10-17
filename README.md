@@ -20,7 +20,6 @@ Face Recognition/
 ├── detect_face_with_name.py
 │
 ├── haarcascade_frontalface_default.xml
-├── haarcascade_profileface.xml
 ├── classifier.xml
 ├── id_to_name.json
 │
