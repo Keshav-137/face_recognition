@@ -3,6 +3,7 @@ import os
 import cv2
 import json
 from config import DATA_DIR
+from config import FACE_IMAGE_SIZE
 
 
 def parse_image_identity(filename):
@@ -29,7 +30,11 @@ def train_classifier(data_dir=DATA_DIR):
         print(f"Error: The directory '{data_dir}' does not exist. Training failed.")
         return False  # Indicate failure
 
-    path = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith(".jpg") or f.endswith(".png")]
+    path = sorted(
+        os.path.join(data_dir, f)
+        for f in os.listdir(data_dir)
+        if f.lower().endswith((".jpg", ".png"))
+    )
     
     if len(path) == 0:
         print("No images found in the given directory. Training failed.")
@@ -48,6 +53,7 @@ def train_classifier(data_dir=DATA_DIR):
             if imageNp is None:
                 print(f"Error: Could not open or read image {image}.")
                 continue
+            imageNp = cv2.resize(imageNp, FACE_IMAGE_SIZE)
             user_id, name = parse_image_identity(image)
             
             faces.append(imageNp)

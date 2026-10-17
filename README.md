@@ -20,6 +20,7 @@ Face Recognition/
 ├── detect_face_with_name.py
 │
 ├── haarcascade_frontalface_default.xml
+├── haarcascade_profileface.xml
 ├── classifier.xml
 ├── id_to_name.json
 │
@@ -50,9 +51,14 @@ Display Name
 
 This script opens the webcam and detects the user's face using the Haar Cascade classifier.
 
-The detected face is cropped, resized, and saved inside the `Data` folder.
+The script guides you through front-facing, left-profile, and right-profile poses.
+It saves 100 images for each pose (300 total), taking no more than two images per
+second. Keep the face visible and turn your head as prompted; press Enter or Q to
+stop early.
 
-Example:
+Images are cropped, converted to grayscale, resized to 200×200, and saved inside
+the `Data` folder. The face cascades are loaded from OpenCV's installed cascade
+data.
 
 ```text
 1.Keshav.1.jpg
@@ -84,7 +90,9 @@ means:
 
 `train_classifier.py`
 
-This script reads the face images from the `Data` folder and trains the LBPH face recognizer.
+This script reads all face images from the `Data` folder, normalizes them to
+200×200 grayscale images, and trains the LBPH face recognizer. This includes
+both profile views alongside frontal images.
 
 It creates two important files:
 
@@ -114,13 +122,13 @@ Example:
 
 This script starts the webcam and performs real-time face recognition.
 
-For every detected face, it:
+The live recognizer detects frontal and profile faces. For every detected face, it:
 
 1. Detects the face
 2. Sends the face to the trained LBPH model
 3. Gets the predicted ID
 4. Finds the person's name from `id_to_name.json`
-5. Displays the name on the webcam screen
+5. Displays the name only when the calculated match confidence is greater than 70%
 
 If the face does not match a known person, it displays:
 
